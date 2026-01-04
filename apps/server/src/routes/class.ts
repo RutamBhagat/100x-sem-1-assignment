@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@100x-sem-1-assignment/db";
 import { classes } from "@100x-sem-1-assignment/db/schema";
 import { zValidator } from "@hono/zod-validator";
+import { authMiddleware, requireRole } from "@/middleware/auth";
 
 export const classRouter = new Hono();
 
@@ -21,6 +22,8 @@ classRouter.post(
       return c.json({ success: false, error: "Invalid request schema" }, 400);
     }
   }),
+  authMiddleware,
+  requireRole("teacher"),
   async (c) => {
     const { className } = c.req.valid("json");
 
