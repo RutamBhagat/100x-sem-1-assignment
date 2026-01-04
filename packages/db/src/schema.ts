@@ -1,6 +1,10 @@
 import { pgTable, text, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { z } from "zod";
 
-const userRole = pgEnum("user_role", ["teacher", "student"]);
+export const userRole = pgEnum("user_role", ["teacher", "student"]);
+
+export type UserRole = (typeof userRole.enumValues)[number];
+export const UserRoleSchema = z.enum(userRole.enumValues);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -3,6 +3,6 @@ import { z } from "zod";
 
 export const attendanceRouter = new Hono();
 
-export const startAttendanceSchema = z.object({
+const startAttendanceSchema = z.object({
   classId: z.uuid(),
 });
