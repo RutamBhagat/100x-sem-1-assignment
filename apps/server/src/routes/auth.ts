@@ -1,4 +1,4 @@
-import { db, users } from "@100x-sem-1-assignment/db";
+import { db, UserRoleSchema, users } from "@100x-sem-1-assignment/db";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -9,7 +9,7 @@ const signupSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
   password: z.string().min(6),
-  role: z.enum(["teacher", "student"]),
+  role: UserRoleSchema,
 });
 
 const loginSchema = z.object({
