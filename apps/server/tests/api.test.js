@@ -74,7 +74,7 @@ async function createStudentAndLogin() {
     role: 'student'
   });
   const { data } = await request('POST', '/auth/login', { email, password: 'password123' });
-  return { token: data.data.token, email, id: signupRes.data.data._id };
+  return { token: data.data.token, email, id: signupRes.data.data.id };
 }
 
 // ============================================
@@ -92,7 +92,7 @@ describe('POST /auth/signup', () => {
 
     expect(status).toBe(201);
     expect(data.success).toBe(true);
-    expect(data.data).toHaveProperty('_id');
+    expect(data.data).toHaveProperty('id');
     expect(data.data.name).toBe('John Doe');
     expect(data.data.email).toBe(email);
     expect(data.data.role).toBe('student');
@@ -317,7 +317,7 @@ describe('GET /auth/me', () => {
 
     expect(status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data).toHaveProperty('_id');
+    expect(data.data).toHaveProperty('id');
     expect(data.data.email).toBe(email);
     expect(data.data.role).toBe('student');
     expect(data.data).not.toHaveProperty('password');
@@ -378,7 +378,7 @@ describe('POST /class', () => {
 
     expect(status).toBe(201);
     expect(data.success).toBe(true);
-    expect(data.data).toHaveProperty('_id');
+    expect(data.data).toHaveProperty('id');
     expect(data.data.className).toBe('Math 101');
     expect(data.data).toHaveProperty('teacherId');
     expect(data.data.studentIds).toEqual([]);
@@ -426,7 +426,7 @@ describe('POST /class/:id/add-student', () => {
     const { id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', `/class/${classId}/add-student`, {
       studentId
@@ -442,7 +442,7 @@ describe('POST /class/:id/add-student', () => {
     const { id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     const { status, data } = await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
@@ -457,7 +457,7 @@ describe('POST /class/:id/add-student', () => {
     const { id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacher1Token);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', `/class/${classId}/add-student`, {
       studentId
@@ -473,7 +473,7 @@ describe('POST /class/:id/add-student', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', `/class/${classId}/add-student`, {
       studentId
@@ -487,7 +487,7 @@ describe('POST /class/:id/add-student', () => {
   it('should return 404 for non-existent class', async () => {
     const { token: teacherToken } = await createTeacherAndLogin();
     const { id: studentId } = await createStudentAndLogin();
-    const fakeClassId = '507f1f77bcf86cd799439011';
+    const fakeClassId = '550e8400-e29b-41d4-a716-446655440099';
 
     const { status, data } = await request('POST', `/class/${fakeClassId}/add-student`, {
       studentId
@@ -502,8 +502,8 @@ describe('POST /class/:id/add-student', () => {
     const { token: teacherToken } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
-    const fakeStudentId = '507f1f77bcf86cd799439011';
+    const classId = classRes.data.data.id;
+    const fakeStudentId = '550e8400-e29b-41d4-a716-446655440099';
 
     const { status, data } = await request('POST', `/class/${classId}/add-student`, {
       studentId: fakeStudentId
@@ -518,7 +518,7 @@ describe('POST /class/:id/add-student', () => {
     const { token: teacherToken } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', `/class/${classId}/add-student`, {}, teacherToken);
 
@@ -547,17 +547,17 @@ describe('GET /class/:id', () => {
     const { id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
 
     const { status, data } = await request('GET', `/class/${classId}`, null, teacherToken);
 
     expect(status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data._id).toBe(classId);
+    expect(data.data.id).toBe(classId);
     expect(data.data.className).toBe('Math 101');
     expect(data.data.students).toHaveLength(1);
-    expect(data.data.students[0]).toHaveProperty('_id');
+    expect(data.data.students[0]).toHaveProperty('id');
     expect(data.data.students[0]).toHaveProperty('name');
     expect(data.data.students[0]).toHaveProperty('email');
   });
@@ -567,7 +567,7 @@ describe('GET /class/:id', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
 
     const { status, data } = await request('GET', `/class/${classId}`, null, studentToken);
@@ -582,7 +582,7 @@ describe('GET /class/:id', () => {
     const { token: teacher2Token } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacher1Token);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('GET', `/class/${classId}`, null, teacher2Token);
 
@@ -596,7 +596,7 @@ describe('GET /class/:id', () => {
     const { token: studentToken } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('GET', `/class/${classId}`, null, studentToken);
 
@@ -607,7 +607,7 @@ describe('GET /class/:id', () => {
 
   it('should return 404 for non-existent class', async () => {
     const { token: teacherToken } = await createTeacherAndLogin();
-    const fakeClassId = '507f1f77bcf86cd799439011';
+    const fakeClassId = '550e8400-e29b-41d4-a716-446655440099';
 
     const { status, data } = await request('GET', `/class/${fakeClassId}`, null, teacherToken);
 
@@ -640,7 +640,7 @@ describe('GET /students', () => {
     expect(data.success).toBe(true);
     expect(Array.isArray(data.data)).toBe(true);
     expect(data.data.length).toBeGreaterThanOrEqual(2);
-    expect(data.data[0]).toHaveProperty('_id');
+    expect(data.data[0]).toHaveProperty('id');
     expect(data.data[0]).toHaveProperty('name');
     expect(data.data[0]).toHaveProperty('email');
     expect(data.data[0]).not.toHaveProperty('password');
@@ -673,7 +673,7 @@ describe('POST /attendance/start', () => {
     const { token: teacherToken } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -689,7 +689,7 @@ describe('POST /attendance/start', () => {
     const { token: teacher2Token } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacher1Token);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', '/attendance/start', { classId }, teacher2Token);
 
@@ -703,7 +703,7 @@ describe('POST /attendance/start', () => {
     const { token: studentToken } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
 
     const { status, data } = await request('POST', '/attendance/start', { classId }, studentToken);
 
@@ -714,7 +714,7 @@ describe('POST /attendance/start', () => {
 
   it('should return 404 for non-existent class', async () => {
     const { token: teacherToken } = await createTeacherAndLogin();
-    const fakeClassId = '507f1f77bcf86cd799439011';
+    const fakeClassId = '550e8400-e29b-41d4-a716-446655440099';
 
     const { status, data } = await request('POST', '/attendance/start', { classId: fakeClassId }, teacherToken);
 
@@ -751,7 +751,7 @@ describe('POST /attendance/start', () => {
 //     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
 //     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-//     const classId = classRes.data.data._id;
+//     const classId = classRes.data.data.id;
 //     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
 
 //     const { status, data } = await request('GET', `/class/${classId}/my-attendance`, null, studentToken);
@@ -767,7 +767,7 @@ describe('POST /attendance/start', () => {
 //     const { token: studentToken } = await createStudentAndLogin();
 
 //     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-//     const classId = classRes.data.data._id;
+//     const classId = classRes.data.data.id;
 
 //     const { status, data } = await request('GET', `/class/${classId}/my-attendance`, null, studentToken);
 
@@ -780,7 +780,7 @@ describe('POST /attendance/start', () => {
 //     const { token: teacherToken } = await createTeacherAndLogin();
 
 //     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-//     const classId = classRes.data.data._id;
+//     const classId = classRes.data.data.id;
 
 //     const { status, data } = await request('GET', `/class/${classId}/my-attendance`, null, teacherToken);
 
@@ -791,7 +791,7 @@ describe('POST /attendance/start', () => {
 
 //   it('should return 404 for non-existent class', async () => {
 //     const { token: studentToken } = await createStudentAndLogin();
-//     const fakeClassId = '507f1f77bcf86cd799439011';
+//     const fakeClassId = '550e8400-e29b-41d4-a716-446655440099';
 
 //     const { status, data } = await request('GET', `/class/${fakeClassId}/my-attendance`, null, studentToken);
 
@@ -869,7 +869,7 @@ describe('WebSocket - ATTENDANCE_MARKED', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -900,7 +900,7 @@ describe('WebSocket - ATTENDANCE_MARKED', () => {
     const { id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -922,7 +922,7 @@ describe('WebSocket - ATTENDANCE_MARKED', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -969,7 +969,7 @@ describe('WebSocket - TODAY_SUMMARY', () => {
     const { id: student2Id } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId: student1Id }, teacherToken);
     await request('POST', `/class/${classId}/add-student`, { studentId: student2Id }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
@@ -998,7 +998,7 @@ describe('WebSocket - TODAY_SUMMARY', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1022,7 +1022,7 @@ describe('WebSocket - TODAY_SUMMARY', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1055,7 +1055,7 @@ describe('WebSocket - TODAY_SUMMARY', () => {
     const { token: teacherToken } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
     const teacherWs = await createWsConnection(teacherToken);
@@ -1080,7 +1080,7 @@ describe('WebSocket - MY_ATTENDANCE', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1100,7 +1100,7 @@ describe('WebSocket - MY_ATTENDANCE', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1127,7 +1127,7 @@ describe('WebSocket - MY_ATTENDANCE', () => {
     const { token: student2Token, id: student2Id } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId: student1Id }, teacherToken);
     await request('POST', `/class/${classId}/add-student`, { studentId: student2Id }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
@@ -1150,7 +1150,7 @@ describe('WebSocket - MY_ATTENDANCE', () => {
     const { token: teacherToken } = await createTeacherAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
     const teacherWs = await createWsConnection(teacherToken);
@@ -1189,7 +1189,7 @@ describe('WebSocket - DONE', () => {
     const { id: student2Id } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId: student1Id }, teacherToken);
     await request('POST', `/class/${classId}/add-student`, { studentId: student2Id }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
@@ -1220,7 +1220,7 @@ describe('WebSocket - DONE', () => {
     const { id: student2Id } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId: student1Id }, teacherToken);
     await request('POST', `/class/${classId}/add-student`, { studentId: student2Id }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
@@ -1242,7 +1242,7 @@ describe('WebSocket - DONE', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1266,7 +1266,7 @@ describe('WebSocket - DONE', () => {
     const { id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1289,7 +1289,7 @@ describe('WebSocket - DONE', () => {
     const { token: studentToken, id: studentId } = await createStudentAndLogin();
 
     const classRes = await request('POST', '/class', { className: 'Math 101' }, teacherToken);
-    const classId = classRes.data.data._id;
+    const classId = classRes.data.data.id;
     await request('POST', `/class/${classId}/add-student`, { studentId }, teacherToken);
     await request('POST', '/attendance/start', { classId }, teacherToken);
 
@@ -1404,15 +1404,15 @@ describe('End-to-End Attendance Flow', () => {
       className: 'Computer Science 101'
     }, teacherToken);
     expect(classCreate.status).toBe(201);
-    const classId = classCreate.data.data._id;
+    const classId = classCreate.data.data.id;
 
     // 6. Teacher adds students to class
     await request('POST', `/class/${classId}/add-student`, {
-      studentId: student1Signup.data.data._id
+      studentId: student1Signup.data.data.id
     }, teacherToken);
 
     await request('POST', `/class/${classId}/add-student`, {
-      studentId: student2Signup.data.data._id
+      studentId: student2Signup.data.data.id
     }, teacherToken);
 
     // 7. Teacher starts attendance session
@@ -1427,7 +1427,7 @@ describe('End-to-End Attendance Flow', () => {
 
     // 9. Teacher marks Alice present
     sendWsMessage(teacherWs, 'ATTENDANCE_MARKED', {
-      studentId: student1Signup.data.data._id,
+      studentId: student1Signup.data.data.id,
       status: 'present'
     });
     await waitForWsMessage(teacherWs);
