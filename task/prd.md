@@ -68,6 +68,7 @@ export const env = createEnv({
 ```
 
 **Required variables:**
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `JWT_SECRET` - Secret for JWT signing (min 32 chars)
 - `NODE_ENV` - Environment mode
@@ -420,6 +421,7 @@ activeSession = {
 ```
 
 **Important:**
+
 - `startedAt` must be ISO string: `new Date().toISOString()`
 - `attendance` object maps studentId (UUID) to status
 - Only ONE session active at a time
