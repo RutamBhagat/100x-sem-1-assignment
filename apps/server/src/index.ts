@@ -11,7 +11,7 @@ app.use(
   cors({
     origin: env.CORS_ORIGIN,
     allowMethods: ["GET", "POST", "OPTIONS"],
-  }),
+  })
 );
 
 app.get("/", (c) => {
@@ -23,7 +23,7 @@ import { authRouter } from "./routes/auth";
 import { classRouter } from "./routes/class";
 import { attendanceRouter } from "./routes/attendance";
 
-app.route("/", authRouter);
+app.route("/auth", authRouter);
 app.route("/", classRouter);
 app.route("/", attendanceRouter);
 
@@ -34,5 +34,5 @@ serve(
   },
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`);
-  },
+  }
 );
