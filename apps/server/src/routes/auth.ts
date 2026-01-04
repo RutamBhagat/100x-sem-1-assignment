@@ -5,8 +5,13 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import { env } from "@100x-sem-1-assignment/env/server";
 import jwt from "jsonwebtoken";
+import { authMiddleware, JWTPayloadSchema } from "@/middleware/auth";
 
-export const authRouter = new Hono();
+type AuthVariables = {
+  user: z.infer<typeof JWTPayloadSchema>;
+};
+
+export const authRouter = new Hono<{ Variables: AuthVariables }>();
 
 const signupSchema = z.object({
   name: z.string().min(1),
@@ -101,3 +106,18 @@ authRouter.post(
     return c.json({ success: true, data: { token } }, 200);
   }
 );
+
+authRouter.get("/me", authMiddleware, async (c) => {
+  const { userId } = c.get("user");
+
+  const user = await db.query.users.findFirst({
+    where: { id: userId },
+    columns: { id: true, name: true, email: true, role: true },
+  });
+
+  if (!user) {
+    return c.json({ success: false, error: "User not found" }, 404);
+  }
+
+  return c.json({ success: true, data: user }, 200);
+});
