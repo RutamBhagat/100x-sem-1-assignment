@@ -36,8 +36,8 @@ export const authMiddleware = async (c: Context, next: Next) => {
 
 export const requireRole = (role: UserRole) => {
   return async (c: Context, next: Next) => {
-    const user = JWTPayloadSchema.safeParse(c.get("user"));
-    if (!user.success || user.data.role !== role) {
+    const user = c.get("user") as unknown as z.infer<typeof JWTPayloadSchema>;
+    if (!user || user.role !== role) {
       return c.json(
         { success: false, error: `Forbidden, ${role} access required` },
         403
