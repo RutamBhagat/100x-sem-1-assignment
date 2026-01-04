@@ -2,6 +2,7 @@ import { db, UserRoleSchema, users } from "@100x-sem-1-assignment/db";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 
 export const authRouter = new Hono();
 
@@ -37,15 +38,22 @@ authRouter.post(
       return c.json({ success: false, error: "Email already exists" }, 400);
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const [user] = await db
       .insert(users)
-      .values({ name, email, password, role })
+      .values({ name, email, password: hashedPassword, role })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
       });
+
+    if (!user) {
+      return c.json({ success: false, error: "Failed to create user" }, 500);
+    }
+
     return c.json({ success: true, data: user }, 201);
   }
 );
