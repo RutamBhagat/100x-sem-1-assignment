@@ -19,6 +19,13 @@ app.get("/", (c) => {
 });
 
 import { serve } from "@hono/node-server";
+import { authRouter } from "./routes/auth";
+import { classRouter } from "./routes/class";
+import { attendanceRouter } from "./routes/attendance";
+
+app.route("/", authRouter);
+app.route("/", classRouter);
+app.route("/", attendanceRouter);
 
 serve(
   {
