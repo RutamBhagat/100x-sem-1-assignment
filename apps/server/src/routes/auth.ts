@@ -17,25 +17,35 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post("/signup", zValidator("json", signupSchema), async (c) => {
-  const { name, email, password, role } = c.req.valid("json");
+authRouter.post(
+  "/signup",
+  zValidator("json", signupSchema, (result, c) => {
+    if (!result.success) {
+      return c.json({ success: false, error: "Invalid request schema" }, 400);
+    }
+  }),
+  async (c) => {
+    const { name, email, password, role } = c.req.valid("json");
 
-  const existingUser = await db.query.users.findFirst({
-    where: {
-      email: email,
-    },
-  });
-  if (existingUser) {
-    return c.json({ success: false, error: "Email already exists" }, 400);
-  }
-  const user = await db
-    .insert(users)
-    .values({ name, email, password, role })
-    .returning({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
+    const existingUser = await db.query.users.findFirst({
+      where: {
+        email: email,
+      },
     });
-  return c.json({ success: true, data: user[0] }, 201);
-});
+
+    if (existingUser) {
+      return c.json({ success: false, error: "Email already exists" }, 400);
+    }
+
+    const [user] = await db
+      .insert(users)
+      .values({ name, email, password, role })
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      });
+    return c.json({ success: true, data: user }, 201);
+  }
+);
