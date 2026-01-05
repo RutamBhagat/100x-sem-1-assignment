@@ -1,6 +1,6 @@
 # Backend Assignment: Live Attendance System
 
-**Tech Stack:** Node.js, Hono, PostgreSQL, Drizzle ORM, Zod, JWT, bcrypt, `ws` (WebSocket)
+**Tech Stack:** Node.js, Hono, PostgreSQL, Drizzle ORM, Zod, JWT, bcrypt, `@hono/node-ws` (WebSocket)
 
 **Duration:** 3 hours
 
@@ -150,7 +150,12 @@ export const classes = pgTable("classes", {
   id: uuid("id").primaryKey().defaultRandom(),
   className: text("class_name").notNull(),
   teacherId: uuid("teacher_id").references(() => users.id),
-  studentIds: uuid("student_ids").array().notNull().default([]),
+});
+
+export const classEnrollments = pgTable("class_enrollments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  classId: uuid("class_id").references(() => classes.id),
+  studentId: uuid("student_id").references(() => users.id),
 });
 
 const attendanceStatus = pgEnum("attendance_status", ["present", "absent"]);
@@ -172,6 +177,7 @@ import * as schema from './schema';
 export const relations = defineRelations(schema, (r) => ({
   users: {
     taughtClasses: r.many.classes(),
+    enrollments: r.many.classEnrollments(),
     attendanceRecords: r.many.attendance()
   },
   classes: {
@@ -179,7 +185,18 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.classes.teacherId,
       to: r.users.id
     }),
+    enrollments: r.many.classEnrollments(),
     attendanceRecords: r.many.attendance()
+  },
+  classEnrollments: {
+    class: r.one.classes({
+      from: r.classEnrollments.classId,
+      to: r.classes.id
+    }),
+    student: r.one.users({
+      from: r.classEnrollments.studentId,
+      to: r.users.id
+    })
   },
   attendance: {
     class: r.one.classes({
@@ -683,8 +700,7 @@ app.post('/class',
     const [newClass] = await db.insert(classes)
       .values({
         className,
-        teacherId: userId,
-        studentIds: []
+        teacherId: userId
       })
       .returning();
 
@@ -704,8 +720,7 @@ app.post('/class',
   "data": {
     "id": "660e8400-e29b-41d4-a716-446655440000",
     "className": "Maths 101",
-    "teacherId": "550e8400-e29b-41d4-a716-446655440000",
-    "studentIds": []
+    "teacherId": "550e8400-e29b-41d4-a716-446655440000"
   }
 }
 ```
@@ -729,8 +744,6 @@ app.post('/class',
 **Implementation:**
 
 ```typescript
-import { sql } from 'drizzle-orm';
-
 app.post('/class/:id/add-student',
   authMiddleware,
   requireRole('teacher'),
@@ -765,19 +778,30 @@ app.post('/class/:id/add-student',
       return c.json({ success: false, error: 'Student not found' }, 404);
     }
 
-    // Add student if not already in class
-    const updatedIds = classData.studentIds.includes(studentId)
-      ? classData.studentIds
-      : [...classData.studentIds, studentId];
+    // Check if already enrolled
+    const existing = await db.query.classEnrollments.findFirst({
+      where: and(
+        eq(classEnrollments.classId, classId),
+        eq(classEnrollments.studentId, studentId)
+      )
+    });
 
-    const [updated] = await db.update(classes)
-      .set({ studentIds: updatedIds })
-      .where(eq(classes.id, classId))
-      .returning();
+    if (existing) {
+      return c.json({
+        success: true,
+        data: { message: 'Student already enrolled' }
+      });
+    }
+
+    // Add enrollment
+    await db.insert(classEnrollments).values({
+      classId,
+      studentId
+    });
 
     return c.json({
       success: true,
-      data: updated
+      data: { message: 'Student added successfully' }
     });
   }
 );
@@ -789,10 +813,7 @@ app.post('/class/:id/add-student',
 {
   "success": true,
   "data": {
-    "id": "660e8400-e29b-41d4-a716-446655440000",
-    "className": "Maths 101",
-    "teacherId": "550e8400-e29b-41d4-a716-446655440000",
-    "studentIds": ["770e8400-e29b-41d4-a716-446655440000"]
+    "message": "Student added successfully"
   }
 }
 ```
@@ -808,8 +829,6 @@ app.post('/class/:id/add-student',
 **Implementation:**
 
 ```typescript
-import { inArray } from 'drizzle-orm';
-
 app.get('/class/:id',
   authMiddleware,
   async (c) => {
@@ -826,7 +845,17 @@ app.get('/class/:id',
 
     // Authorization check
     const isTeacher = role === 'teacher' && classData.teacherId === userId;
-    const isEnrolled = role === 'student' && classData.studentIds.includes(userId);
+
+    let isEnrolled = false;
+    if (role === 'student') {
+      const enrollment = await db.query.classEnrollments.findFirst({
+        where: and(
+          eq(classEnrollments.classId, classId),
+          eq(classEnrollments.studentId, userId)
+        )
+      });
+      isEnrolled = !!enrollment;
+    }
 
     if (!isTeacher && !isEnrolled) {
       return c.json({
@@ -835,13 +864,17 @@ app.get('/class/:id',
       }, 403);
     }
 
-    // Fetch student details
-    const students = classData.studentIds.length > 0
-      ? await db.query.users.findMany({
-          where: inArray(users.id, classData.studentIds),
+    // Fetch enrolled students
+    const enrollments = await db.query.classEnrollments.findMany({
+      where: eq(classEnrollments.classId, classId),
+      with: {
+        student: {
           columns: { id: true, name: true, email: true }
-        })
-      : [];
+        }
+      }
+    });
+
+    const students = enrollments.map(e => e.student);
 
     return c.json({
       success: true,
@@ -952,7 +985,14 @@ app.get('/class/:id/my-attendance',
     }
 
     // Check enrollment
-    if (!classData.studentIds.includes(userId)) {
+    const enrollment = await db.query.classEnrollments.findFirst({
+      where: and(
+        eq(classEnrollments.classId, classId),
+        eq(classEnrollments.studentId, userId)
+      )
+    });
+
+    if (!enrollment) {
       return c.json({
         success: false,
         error: 'Forbidden, not enrolled in class'
@@ -1079,44 +1119,316 @@ app.post('/attendance/start',
 
 ## WebSocket Server
 
-### Setup with Hono
+### Setup with @hono/node-ws
+
+**Installation:**
+```bash
+pnpm add @hono/node-ws
+```
+
+### Integration Pattern
+
+Following the official @hono/node-ws pattern:
+
+**File: `apps/server/src/index.ts`**
 
 ```typescript
-import { WebSocketServer, WebSocket } from 'ws';
-import { createServer } from 'http';
+import { env } from "@100x-sem-1-assignment/env/server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { serve } from "@hono/node-server";
+import { createNodeWebSocket } from "@hono/node-ws";
+
+const app = new Hono();
+
+// Create WebSocket adapter
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
+
+app.use(logger());
+app.use("/*", cors({
+  origin: env.CORS_ORIGIN,
+  allowMethods: ["GET", "POST", "OPTIONS"],
+}));
+
+// HTTP routes
+import { authRouter } from "./routes/auth";
+import { classRouter } from "./routes/class";
+import { attendanceRouter } from "./routes/attendance";
+import { studentsRouter } from "./routes/students";
+
+app.route("/auth", authRouter);
+app.route("/class", classRouter);
+app.route("/students", studentsRouter);
+app.route("/attendance", attendanceRouter);
+
+// WebSocket route (defined inline or imported)
+app.get('/ws', upgradeWebSocket((c) => {
+  // See WebSocket handler implementation below
+}));
+
+// Start server
+const server = serve({
+  fetch: app.fetch,
+  port: 3000
+}, (info) => {
+  console.log(`Server running on http://localhost:${info.port}`);
+});
+
+// Inject WebSocket handling into Node.js server
+injectWebSocket(server);
+```
+
+### WebSocket Handler Implementation
+
+**File: `apps/server/src/websocket.ts`**
+
+```typescript
+import { env } from '@100x-sem-1-assignment/env/server';
 import jwt from 'jsonwebtoken';
-import { env } from '@repo/env';
+import type { WSContext } from 'hono/ws';
+import { db } from '@100x-sem-1-assignment/db';
+import { classEnrollments, attendance as attendanceTable } from '@100x-sem-1-assignment/db/schema';
+import { eq } from '@100x-sem-1-assignment/db';
+import { activeSession } from './routes/attendance';
 
-const wss = new WebSocketServer({ noServer: true });
+type JWTPayload = { userId: string; role: 'teacher' | 'student' };
 
-// Extend WebSocket type
-type ExtendedWebSocket = WebSocket & {
-  user: JWTPayload;
-};
+// Track connected clients
+const clients = new Map<WSContext, JWTPayload>();
 
-// Upgrade handler
-server.on('upgrade', (request, socket, head) => {
-  const url = new URL(request.url!, `http://${request.headers.host}`);
-  const token = url.searchParams.get('token');
+export function createWebSocketHandler() {
+  return (c: any) => {
+    const token = c.req.query('token');
 
-  if (!token) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
+    if (!token) {
+      return {
+        onMessage(evt: any, ws: WSContext) {
+          ws.send(JSON.stringify({
+            event: 'ERROR',
+            data: { message: 'Unauthorized or invalid token' }
+          }));
+          ws.close();
+        }
+      };
+    }
+
+    let user: JWTPayload;
+    try {
+      user = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
+    } catch {
+      return {
+        onMessage(evt: any, ws: WSContext) {
+          ws.send(JSON.stringify({
+            event: 'ERROR',
+            data: { message: 'Unauthorized or invalid token' }
+          }));
+          ws.close();
+        }
+      };
+    }
+
+    return {
+      onOpen(evt: any, ws: WSContext) {
+        clients.set(ws, user);
+      },
+
+      async onMessage(evt: any, ws: WSContext) {
+        try {
+          const msg = JSON.parse(evt.data.toString());
+          await handleMessage(msg, ws, user);
+        } catch {
+          ws.send(JSON.stringify({
+            event: 'ERROR',
+            data: { message: 'Invalid message format' }
+          }));
+        }
+      },
+
+      onClose(evt: any, ws: WSContext) {
+        clients.delete(ws);
+      }
+    };
+  };
+}
+
+async function handleMessage(msg: any, ws: WSContext, user: JWTPayload) {
+  switch (msg.event) {
+    case 'ATTENDANCE_MARKED':
+      await handleAttendanceMarked(msg.data, ws, user);
+      break;
+    case 'TODAY_SUMMARY':
+      await handleTodaySummary(ws, user);
+      break;
+    case 'MY_ATTENDANCE':
+      await handleMyAttendance(ws, user);
+      break;
+    case 'DONE':
+      await handleDone(ws, user);
+      break;
+    default:
+      ws.send(JSON.stringify({
+        event: 'ERROR',
+        data: { message: 'Unknown event' }
+      }));
+  }
+}
+
+async function handleAttendanceMarked(
+  data: { studentId: string; status: 'present' | 'absent' },
+  ws: WSContext,
+  user: JWTPayload
+) {
+  if (user.role !== 'teacher') {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'Forbidden, teacher event only' }
+    }));
     return;
   }
 
-  try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
-
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      (ws as ExtendedWebSocket).user = decoded;
-      wss.emit('connection', ws, request);
-    });
-  } catch {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
+  if (!activeSession) {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'No active attendance session' }
+    }));
+    return;
   }
-});
+
+  const { studentId, status } = data;
+  activeSession.attendance[studentId] = status;
+
+  broadcast({ event: 'ATTENDANCE_MARKED', data: { studentId, status } });
+}
+
+async function handleTodaySummary(ws: WSContext, user: JWTPayload) {
+  if (user.role !== 'teacher') {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'Forbidden, teacher event only' }
+    }));
+    return;
+  }
+
+  if (!activeSession) {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'No active attendance session' }
+    }));
+    return;
+  }
+
+  const statuses = Object.values(activeSession.attendance);
+  const present = statuses.filter(s => s === 'present').length;
+  const absent = statuses.filter(s => s === 'absent').length;
+  const total = statuses.length;
+
+  broadcast({
+    event: 'TODAY_SUMMARY',
+    data: { present, absent, total }
+  });
+}
+
+async function handleMyAttendance(ws: WSContext, user: JWTPayload) {
+  if (user.role !== 'student') {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'Forbidden, student event only' }
+    }));
+    return;
+  }
+
+  if (!activeSession) {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'No active attendance session' }
+    }));
+    return;
+  }
+
+  const status = activeSession.attendance[user.userId] || 'not yet updated';
+
+  ws.send(JSON.stringify({
+    event: 'MY_ATTENDANCE',
+    data: { status }
+  }));
+}
+
+async function handleDone(ws: WSContext, user: JWTPayload) {
+  if (user.role !== 'teacher') {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'Forbidden, teacher event only' }
+    }));
+    return;
+  }
+
+  if (!activeSession) {
+    ws.send(JSON.stringify({
+      event: 'ERROR',
+      data: { message: 'No active attendance session' }
+    }));
+    return;
+  }
+
+  // Fetch all enrolled students via classEnrollments
+  const enrollments = await db.query.classEnrollments.findMany({
+    where: eq(classEnrollments.classId, activeSession.classId)
+  });
+
+  // Mark unmarked students as absent
+  const finalAttendance = { ...activeSession.attendance };
+  for (const enrollment of enrollments) {
+    if (!(enrollment.studentId in finalAttendance)) {
+      finalAttendance[enrollment.studentId] = 'absent';
+    }
+  }
+
+  // Persist to database
+  const records = Object.entries(finalAttendance).map(([studentId, status]) => ({
+    classId: activeSession!.classId,
+    studentId,
+    status: status as 'present' | 'absent'
+  }));
+
+  await db.insert(attendanceTable).values(records);
+
+  // Calculate final summary
+  const statuses = Object.values(finalAttendance);
+  const present = statuses.filter(s => s === 'present').length;
+  const absent = statuses.filter(s => s === 'absent').length;
+  const total = statuses.length;
+
+  // Clear session BEFORE broadcasting
+  (activeSession as any) = null;
+
+  // Broadcast final summary
+  broadcast({
+    event: 'DONE',
+    data: {
+      message: 'Attendance persisted',
+      present,
+      absent,
+      total
+    }
+  });
+}
+
+function broadcast(message: object) {
+  const payload = JSON.stringify(message);
+  for (const [ws, _] of clients) {
+    if (ws.readyState === 1) {  // WebSocket.OPEN
+      ws.send(payload);
+    }
+  }
+}
+```
+
+**Import in `index.ts`:**
+```typescript
+import { createWebSocketHandler } from './websocket';
+
+app.get('/ws', upgradeWebSocket(createWebSocketHandler()));
 ```
 
 ### Connection URL
@@ -1417,15 +1729,15 @@ case 'DONE': {
     return;
   }
 
-  // Get all students in class
-  const classData = await db.query.classes.findFirst({
-    where: eq(classes.id, activeSession.classId)
+  // Get all enrolled students in class
+  const enrollments = await db.query.classEnrollments.findMany({
+    where: eq(classEnrollments.classId, activeSession.classId)
   });
 
   // Mark unmarked students as absent
-  for (const studentId of classData!.studentIds) {
-    if (!activeSession.attendance[studentId]) {
-      activeSession.attendance[studentId] = 'absent';
+  for (const enrollment of enrollments) {
+    if (!activeSession.attendance[enrollment.studentId]) {
+      activeSession.attendance[enrollment.studentId] = 'absent';
     }
   }
 

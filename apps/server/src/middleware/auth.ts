@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { env } from "@100x-sem-1-assignment/env/server";
 import {
   UserRoleSchema,
-  type UserRole,
+  type TUserRole,
 } from "@100x-sem-1-assignment/db/schema";
 import { z } from "zod";
 
@@ -11,6 +11,8 @@ export const JWTPayloadSchema = z.object({
   userId: z.uuid(),
   role: UserRoleSchema,
 });
+
+export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 
 export const authMiddleware = async (c: Context, next: Next) => {
   const token = c.req.header("Authorization");
@@ -34,9 +36,9 @@ export const authMiddleware = async (c: Context, next: Next) => {
   }
 };
 
-export const requireRole = (role: UserRole) => {
+export const requireRole = (role: TUserRole) => {
   return async (c: Context, next: Next) => {
-    const user = c.get("user") as unknown as z.infer<typeof JWTPayloadSchema>;
+    const user = c.get("user") as unknown as JWTPayload;
     if (!user || user.role !== role) {
       return c.json(
         { success: false, error: `Forbidden, ${role} access required` },

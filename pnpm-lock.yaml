@@ -63,6 +63,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.14.4
         version: 1.19.7(hono@4.11.3)
+      '@hono/node-ws':
+        specifier: ^1.2.0
+        version: 1.2.0(@hono/node-server@1.19.7(hono@4.11.3))(hono@4.11.3)
       '@hono/zod-validator':
         specifier: ^0.7.6
         version: 0.7.6(hono@4.11.3)(zod@4.3.4)
@@ -591,6 +594,13 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/node-ws@1.2.0':
+    resolution: {integrity: sha512-OBPQ8OSHBw29mj00wT/xGYtB6HY54j0fNSdVZ7gZM3TUeq0So11GXaWtFf1xWxQNfumKIsj0wRuLKWfVsO5GgQ==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      '@hono/node-server': ^1.11.1
+      hono: ^4.6.0
 
   '@hono/zod-validator@0.7.6':
     resolution: {integrity: sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw==}
@@ -2233,6 +2243,15 @@ snapshots:
   '@hono/node-server@1.19.7(hono@4.11.3)':
     dependencies:
       hono: 4.11.3
+
+  '@hono/node-ws@1.2.0(@hono/node-server@1.19.7(hono@4.11.3))(hono@4.11.3)':
+    dependencies:
+      '@hono/node-server': 1.19.7(hono@4.11.3)
+      hono: 4.11.3
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@hono/zod-validator@0.7.6(hono@4.11.3)(zod@4.3.4)':
     dependencies:

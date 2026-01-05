@@ -2,8 +2,10 @@ import { env } from "@100x-sem-1-assignment/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { createNodeWebSocket } from "@hono/node-ws";
 
 const app = new Hono();
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
 app.use(logger());
 app.use(
@@ -23,13 +25,16 @@ import { authRouter } from "./routes/auth";
 import { classRouter } from "./routes/class";
 import { attendanceRouter } from "./routes/attendance";
 import { studentsRouter } from "./routes/students";
+import { createWebSocketHandler } from "./websocket";
 
 app.route("/auth", authRouter);
 app.route("/class", classRouter);
 app.route("/students", studentsRouter);
 app.route("/attendance", attendanceRouter);
 
-serve(
+app.get("/ws", upgradeWebSocket(createWebSocketHandler()));
+
+const server = serve(
   {
     fetch: app.fetch,
     port: 3000,
@@ -38,3 +43,5 @@ serve(
     console.log(`Server is running on http://localhost:${info.port}`);
   }
 );
+
+injectWebSocket(server);

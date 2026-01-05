@@ -2,10 +2,15 @@ import { pgTable, text, uuid, pgEnum } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export const userRole = pgEnum("user_role", ["teacher", "student"]);
-export const attendanceStatus = pgEnum("attendance_status", ["present", "absent"]);
+export const attendanceStatus = pgEnum("attendance_status", [
+  "present",
+  "absent",
+]);
 
-export type UserRole = (typeof userRole.enumValues)[number];
+export type TUserRole = (typeof userRole.enumValues)[number];
 export const UserRoleSchema = z.enum(userRole.enumValues);
+
+export type TAttendanceStatus = (typeof attendanceStatus.enumValues)[number];
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -30,6 +35,10 @@ export const attendance = pgTable("attendance", {
 
 export const classEnrollments = pgTable("class_enrollments", {
   id: uuid("id").primaryKey().defaultRandom(),
-  classId: uuid("class_id").notNull().references(() => classes.id),
-  studentId: uuid("student_id").notNull().references(() => users.id),
+  classId: uuid("class_id")
+    .notNull()
+    .references(() => classes.id),
+  studentId: uuid("student_id")
+    .notNull()
+    .references(() => users.id),
 });

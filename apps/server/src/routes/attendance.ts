@@ -1,4 +1,4 @@
-import type { UserRole } from "@100x-sem-1-assignment/db";
+import type { TAttendanceStatus } from "@100x-sem-1-assignment/db";
 import { Hono } from "hono";
 import { z } from "zod";
 import { authMiddleware, requireRole } from "@/middleware/auth";
@@ -12,13 +12,13 @@ const startAttendanceSchema = z.object({
   classId: z.uuid(),
 });
 
-type ActiveSession = {
+export type ActiveSession = {
   classId: string;
   startedAt: string;
-  attendance: Record<string, UserRole>;
+  attendance: Record<string, TAttendanceStatus>;
 } | null;
 
-let activeSession: ActiveSession = null;
+export let activeSession: ActiveSession = null;
 
 attendanceRouter.post(
   "/start",
